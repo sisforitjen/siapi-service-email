@@ -4,6 +4,9 @@ var app = require('../app');
 var http = require('http');
 require('dotenv').config();
 
+// Mulai BullMQ worker
+require('../jobs/emailWorker');
+
 var port = normalizePort(process.env.PORT || '5950');
 app.set('port', port);
 
