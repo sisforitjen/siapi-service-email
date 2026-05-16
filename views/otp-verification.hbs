@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kode Verifikasi Lupa Password - SIAPI</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f0f4f0; font-family:'Segoe UI', Arial, sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0f4f0; padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%;">
+
+          <!-- HEADER LOGO -->
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              {{#if logo_url}}
+              <img src="{{logo_url}}" alt="SIAPI Kemenag" width="160" style="display:block; max-width:160px; height:auto;" />
+              {{else}}
+              <div style="font-size:22px; font-weight:700; color:#006633; letter-spacing:1px;">SIAPI</div>
+              {{/if}}
+            </td>
+          </tr>
+
+          <!-- CARD -->
+          <tr>
+            <td style="background-color:#ffffff; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.08); overflow:hidden;">
+
+              <!-- TOP ACCENT BAR -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color:#006633; height:6px; border-radius:12px 12px 0 0;"></td>
+                </tr>
+              </table>
+
+              <!-- BODY -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:40px 48px 32px;">
+
+                    <!-- Icon -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="padding-bottom:24px;">
+                          <div style="display:inline-block; background-color:#e6f2ec; border-radius:50%; width:68px; height:68px; line-height:68px; text-align:center; font-size:32px;">
+                            🔐
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Title -->
+                    <p style="margin:0 0 8px; font-size:22px; font-weight:700; color:#1a2e1a; text-align:center;">
+                      Kode Verifikasi Anda
+                    </p>
+                    <p style="margin:0 0 28px; font-size:15px; color:#5a6b5a; text-align:center; line-height:1.7;">
+                      Halo, <strong>{{ user.fullname }}</strong>.<br/>
+                      Gunakan kode berikut untuk melanjutkan proses reset password akun SIAPI Anda.
+                    </p>
+
+                    <!-- OTP Box -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="padding-bottom:28px;">
+                          <div style="display:inline-block; background-color:#006633; color:#ffffff; font-size:38px; font-weight:700; letter-spacing:14px; padding:18px 40px; border-radius:10px; font-family:'Courier New', monospace;">
+                            {{ kode_verif }}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Warning Box -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background-color:#fff8e6; border-left:4px solid #d4a017; border-radius:4px; padding:14px 18px;">
+                          <p style="margin:0; font-size:13px; color:#7a5c00; line-height:1.7;">
+                            ⏱ Kode ini berlaku selama <strong>1 jam</strong>.<br/>
+                            Jangan bagikan kode ini kepada siapapun, termasuk petugas SIAPI.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:24px 0 0; font-size:13px; color:#9aaa9a; text-align:center; line-height:1.7;">
+                      Jika Anda tidak merasa meminta reset password, abaikan email ini.<br/>
+                      Akun Anda tetap aman.
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:24px 0 0; text-align:center;">
+              <p style="margin:0; font-size:12px; color:#8a9a8a; line-height:1.9;">
+                Email ini dikirim secara otomatis oleh sistem, mohon jangan membalas email ini.<br/>
+                <strong style="color:#006633;">Sistem Informasi Pengawasan Internal</strong><br/>
+                Kementerian Agama Republik Indonesia
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
