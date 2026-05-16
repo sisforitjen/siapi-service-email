@@ -2,7 +2,7 @@ const { validationResult, body } = require('express-validator');
 const db = require('../models');
 const emailQueue = require('../jobs/emailQueue');
 
-const ALLOWED_TEMPLATES = ['otp-verification', 'password-changed'];
+const ALLOWED_TEMPLATES = ['otp-verification', 'password-changed', 'raw'];
 
 const validateSend = [
   body('to').isEmail().withMessage('to harus berupa email yang valid'),
@@ -25,6 +25,13 @@ module.exports = {
       return res.status(400).json({
         status: false,
         errors: [`Template '${template}' tidak dikenali. Template tersedia: ${ALLOWED_TEMPLATES.join(', ')}`],
+      });
+    }
+
+    if (template === 'raw' && !data?.html) {
+      return res.status(400).json({
+        status: false,
+        errors: ["Template 'raw' membutuhkan field data.html berisi konten HTML"],
       });
     }
 

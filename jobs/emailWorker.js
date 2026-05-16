@@ -44,13 +44,15 @@ const worker = new Worker(
   async (job) => {
     const { logId, to, subject, template, data } = job.data;
 
-    const templateSource = TEMPLATES[template];
-    if (!templateSource) {
-      throw new Error(`Template '${template}' tidak ditemukan`);
+    let html;
+    if (template === 'raw') {
+      if (!data?.html) throw new Error("Template 'raw' membutuhkan data.html");
+      html = data.html;
+    } else {
+      const templateSource = TEMPLATES[template];
+      if (!templateSource) throw new Error(`Template '${template}' tidak ditemukan`);
+      html = handlebars.compile(templateSource)(data || {});
     }
-
-    const compiled = handlebars.compile(templateSource);
-    const html = compiled(data || {});
 
     const mailData = {
       from: `"${process.env.SENDER_NAME}" <${process.env.SENDER_EMAIL}>`,

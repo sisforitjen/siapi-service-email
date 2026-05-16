@@ -69,4 +69,35 @@ describe('POST /api/email/send', () => {
 
     expect(res.status).toBe(400);
   });
+
+  it('returns 200 when template raw with valid data.html', async () => {
+    const res = await request(app)
+      .post('/api/email/send')
+      .set('x-service-key', VALID_KEY)
+      .send({
+        to: 'user@kemenag.go.id',
+        subject: 'Test Raw HTML',
+        template: 'raw',
+        data: { html: '<h1>Halo!</h1><p>Ini email raw HTML.</p>' },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(true);
+    expect(res.body.job_id).toBeDefined();
+  });
+
+  it('returns 400 when template raw without data.html', async () => {
+    const res = await request(app)
+      .post('/api/email/send')
+      .set('x-service-key', VALID_KEY)
+      .send({
+        to: 'user@kemenag.go.id',
+        subject: 'Test Raw HTML',
+        template: 'raw',
+        data: {},
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors[0]).toMatch(/data\.html/);
+  });
 });
