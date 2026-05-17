@@ -15,4 +15,4 @@ COPY . .
 
 EXPOSE 5950
 
-CMD ["sh", "-c", "npm run migrate && npm start"]
+CMD ["sh", "-c", "npx sequelize-cli db:create 2>/dev/null || true && npx sequelize-cli db:migrate && npm start"]
