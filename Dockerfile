@@ -13,8 +13,6 @@ RUN npm install --omit=dev
 
 COPY . .
 
-RUN npm run migrate
-
 EXPOSE 5950
 
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npm run migrate && npm start"]
