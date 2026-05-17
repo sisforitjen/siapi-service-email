@@ -101,7 +101,7 @@ module.exports = {
     const job = await emailQueue.add(
       'send-email',
       { logId: log.id, to, subject, template, data: data || {} },
-      { jobId: log.id }
+      { jobId: `email-${log.id}` }
     );
 
     await db.EmailLog.update({ job_id: job.id }, { where: { id: log.id } });
