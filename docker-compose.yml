@@ -5,6 +5,8 @@ services:
       context: ./
       target: service-email
       network: host
+    env_file:
+      - .env
     ports:
       - 5950:5950
     restart: always
