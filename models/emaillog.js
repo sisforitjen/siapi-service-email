@@ -9,11 +9,12 @@ module.exports = (sequelize, DataTypes) => {
   EmailLog.init(
     {
       id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
         primaryKey: true,
       },
       service_origin: DataTypes.STRING(50),
+      app_name: DataTypes.STRING(100),
       to: DataTypes.STRING(255),
       subject: DataTypes.STRING(255),
       template: DataTypes.STRING(100),

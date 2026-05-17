@@ -1,65 +1,17 @@
 require('dotenv').config();
 const { Worker } = require('bullmq');
-const nodemailer = require('nodemailer');
-const fs = require('fs');
-const path = require('path');
-const handlebars = require('handlebars');
 const { createRedisConnection } = require('../config/redis');
+const { renderTemplate, sendMail } = require('../helpers/mailer');
 const db = require('../models');
-
-const TEMPLATES = {
-  'otp-verification': fs.readFileSync(
-    path.join(__dirname, '../views/otp-verification.hbs'),
-    'utf8'
-  ),
-  'password-changed': fs.readFileSync(
-    path.join(__dirname, '../views/password-changed.hbs'),
-    'utf8'
-  ),
-};
-
-const transport = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT) || 587,
-  secure: parseInt(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
-
-transport.verify((error) => {
-  if (error) {
-    console.error('SMTP connection error:', error.message);
-  } else {
-    console.log('SMTP server siap mengirim email');
-  }
-});
 
 const worker = new Worker(
   'email-queue',
   async (job) => {
     const { logId, to, subject, template, data } = job.data;
 
-    const templateSource = TEMPLATES[template];
-    if (!templateSource) {
-      throw new Error(`Template '${template}' tidak ditemukan`);
-    }
+    const html = renderTemplate(template, data);
 
-    const compiled = handlebars.compile(templateSource);
-    const html = compiled(data || {});
-
-    const mailData = {
-      from: `"${process.env.SENDER_NAME}" <${process.env.SENDER_EMAIL}>`,
-      to,
-      subject,
-      html,
-    };
-
-    const info = await transport.sendMail(mailData);
+    const info = await sendMail({ to, subject, html });
 
     await db.EmailLog.update(
       {
