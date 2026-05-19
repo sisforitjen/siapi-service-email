@@ -1,15 +1,13 @@
 require('dotenv').config();
 const { Worker } = require('bullmq');
 const { createRedisConnection } = require('../config/redis');
-const { renderTemplate, sendMail } = require('../helpers/mailer');
+const { sendMail } = require('../helpers/mailer');
 const db = require('../models');
 
 const worker = new Worker(
   'email-queue',
   async (job) => {
-    const { logId, to, subject, template, data } = job.data;
-
-    const html = renderTemplate(template, data);
+    const { logId, to, subject, html } = job.data;
 
     const info = await sendMail({ to, subject, html });
 

@@ -43,6 +43,13 @@ module.exports = {
 
     // ── MODE DIRECT ─────────────────────────────────────────────────────────
     if (mode === 'direct') {
+      let html;
+      try {
+        html = renderTemplate(template, data || {});
+      } catch (err) {
+        return res.status(400).json({ status: false, errors: [err.message] });
+      }
+
       const log = await db.EmailLog.create({
         service_origin: serviceOrigin,
         app_name: appName,
@@ -50,12 +57,12 @@ module.exports = {
         subject,
         template,
         template_data: data || null,
+        html_body: html,
         status: 'queued',
         queued_at: now,
       });
 
       try {
-        const html = renderTemplate(template, data || {});
         const info = await sendMail({ to, subject, html });
 
         await db.EmailLog.update(
@@ -87,6 +94,13 @@ module.exports = {
     }
 
     // ── MODE QUEUE (default) ─────────────────────────────────────────────────
+    let html;
+    try {
+      html = renderTemplate(template, data || {});
+    } catch (err) {
+      return res.status(400).json({ status: false, errors: [err.message] });
+    }
+
     const log = await db.EmailLog.create({
       service_origin: serviceOrigin,
       app_name: appName,
@@ -94,13 +108,14 @@ module.exports = {
       subject,
       template,
       template_data: data || null,
+      html_body: html,
       status: 'queued',
       queued_at: now,
     });
 
     const job = await emailQueue.add(
       'send-email',
-      { logId: log.id, to, subject, template, data: data || {} },
+      { logId: log.id, to, subject, html },
       { jobId: `email-${log.id}` }
     );
 

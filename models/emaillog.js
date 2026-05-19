@@ -22,6 +22,7 @@ module.exports = (sequelize, DataTypes) => {
       status: DataTypes.ENUM('queued', 'sent', 'failed'),
       job_id: DataTypes.STRING(100),
       message_id: DataTypes.STRING(255),
+      html_body: DataTypes.TEXT,
       error_message: DataTypes.TEXT,
       retry_count: { type: DataTypes.INTEGER, defaultValue: 0 },
       queued_at: DataTypes.DATE,
