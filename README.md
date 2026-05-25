@@ -1,8 +1,16 @@
 # Dokumentasi API — `service-email`
 
-**Versi:** 1.1.0  
-**Base URL:** `http://localhost:5950`  
+**Versi:** 1.2.0  
 **Deskripsi:** Service terpusat untuk pengiriman email di sistem SIAPI. Mendukung dua mode pengiriman: `queue` (async, default) dan `direct` (sync, tunggu hasil SMTP). Setiap pengiriman dicatat lengkap di database beserta nama aplikasi pengirim.
+
+## Base URL
+
+| Akses | Base URL | Keterangan |
+|---|---|---|
+| **Internal PDN** | `http://10.33.0.129:5950` | Untuk service yang berjalan di jaringan server PDN |
+| **Publik (via Gateway)** | `https://api-siapi.kemenag.go.id/v1/email` | Untuk aplikasi di luar jaringan PDN |
+
+> **Catatan:** Akses internal langsung ke port `5950` lebih efisien karena tidak melewati gateway. Gunakan akses publik hanya jika service kamu berada di luar jaringan PDN.
 
 ---
 
@@ -222,8 +230,9 @@ GET /api/email/logs?app_name=DUMAS&date_from=2026-05-01&date_to=2026-05-17
       "subject": "Kode Verifikasi Lupa Password - SIAPI",
       "template": "otp-verification",
       "status": "sent",
-      "job_id": "1",
+      "job_id": "email-1",
       "message_id": "<abc123@smtp.kemenag.go.id>",
+      "html_body": "<html>...</html>",
       "error_message": null,
       "retry_count": 0,
       "queued_at": "2026-05-16T08:30:00.000Z",
@@ -280,8 +289,9 @@ GET /api/email/logs/1
       "user": { "fullname": "Budi Santoso" },
       "kode_verif": "123456"
     },
+    "html_body": "<html><body>...</body></html>",
     "status": "sent",
-    "job_id": "1",
+    "job_id": "email-1",
     "message_id": "<abc123@smtp.kemenag.go.id>",
     "error_message": null,
     "retry_count": 0,
@@ -389,14 +399,21 @@ Digunakan untuk mengirim notifikasi bahwa password berhasil diubah.
 
 ### Setup di `.env` service kamu
 
-Tambahkan dua variabel berikut ke file `.env` service kamu:
+Tambahkan variabel berikut ke file `.env` service kamu sesuai lokasi deployment:
 
+**Jika service kamu berada di jaringan PDN (internal):**
 ```env
-EMAIL_SERVICE_URL=http://localhost:5950
+EMAIL_SERVICE_URL=http://10.33.0.129:5950
 EMAIL_SERVICE_KEY=<minta_ke_tim_backend>
 ```
 
-> Di production, ganti `localhost` dengan hostname/IP server tempat `service-email` berjalan.
+**Jika service kamu berada di luar jaringan PDN (publik):**
+```env
+EMAIL_SERVICE_URL=https://api-siapi.kemenag.go.id/v1/email
+EMAIL_SERVICE_KEY=<minta_ke_tim_backend>
+```
+
+> Perbedaan path: akses internal menggunakan `/api/email/send`, akses publik via gateway menggunakan `/send` (prefix `/api/email` sudah di-strip oleh gateway).
 
 ### Buat helper function
 
@@ -407,7 +424,10 @@ const axios = require('axios');
 require('dotenv').config();
 
 async function sendEmail({ to, subject, template, data, mode, appName }) {
-  const url = `${process.env.EMAIL_SERVICE_URL}/api/email/send`;
+  // Internal PDN  : EMAIL_SERVICE_URL=http://10.33.0.129:5950  → path /api/email/send
+  // Publik gateway: EMAIL_SERVICE_URL=https://api-siapi.kemenag.go.id/v1/email → path /send
+  const base = process.env.EMAIL_SERVICE_URL;
+  const url = base.includes('v1/email') ? `${base}/send` : `${base}/api/email/send`;
   const response = await axios.post(url, { to, subject, template, data, mode }, {
     headers: {
       'Content-Type': 'application/json',
@@ -509,7 +529,7 @@ const axios = require('axios');
 async function kirimOTP(emailTujuan, namaUser, kodeOtp) {
   try {
     const response = await axios.post(
-      'http://localhost:5950/api/email/send',
+      'http://10.33.0.129:5950/api/email/send',  // internal PDN
       {
         to: emailTujuan,
         subject: 'Kode Verifikasi Lupa Password - SIAPI',
@@ -541,7 +561,7 @@ async function kirimOTP(emailTujuan, namaUser, kodeOtp) {
 // Mode direct — tunggu konfirmasi SMTP
 async function kirimEmailLangsung(emailTujuan, subject, htmlContent) {
   const response = await axios.post(
-    'http://localhost:5950/api/email/send',
+    'http://10.33.0.129:5950/api/email/send',  // internal PDN
     {
       to: emailTujuan,
       subject,
@@ -571,21 +591,54 @@ async function kirimEmailLangsung(emailTujuan, subject, htmlContent) {
 ```javascript
 async function cekStatusEmail(jobId) {
   // jobId adalah integer yang dikembalikan dari POST /api/email/send
+  // Internal PDN
   const response = await axios.get(
-    `http://localhost:5950/api/email/logs/${jobId}`,
-    {
-      headers: { 'X-Service-Key': process.env.EMAIL_SERVICE_KEY },
-    }
+    `http://10.33.0.129:5950/api/email/logs/${jobId}`,
+    { headers: { 'X-Service-Key': process.env.EMAIL_SERVICE_KEY } }
   );
+  // Publik (via gateway)
+  // const response = await axios.get(
+  //   `https://api-siapi.kemenag.go.id/v1/email/logs/${jobId}`,
+  //   { headers: { 'X-Service-Key': process.env.EMAIL_SERVICE_KEY } }
+  // );
   return response.data.data.status; // 'queued' | 'sent' | 'failed'
 }
 ```
 
 ### cURL (untuk testing)
 
+#### Via jaringan internal PDN
+
 **Kirim email (mode queue — default):**
 ```bash
-curl -X POST http://localhost:5950/api/email/send \
+curl -X POST http://10.33.0.129:5950/api/email/send \
+  -H "Content-Type: application/json" \
+  -H "X-Service-Key: YOUR_SERVICE_KEY" \
+  -H "X-Service-Origin: nama-service-saya" \
+  -H "X-App-Name: SIAPI" \
+  -d '{
+    "to": "penerima@kemenag.go.id",
+    "subject": "Test Email",
+    "template": "otp-verification",
+    "data": {
+      "user": {"fullname": "Budi Santoso"},
+      "kode_verif": "654321",
+      "logo_url": "https://siapi.kemenag.go.id/media/logokma.png"
+    }
+  }'
+```
+
+**Lihat log:**
+```bash
+curl -H "X-Service-Key: YOUR_SERVICE_KEY" \
+  "http://10.33.0.129:5950/api/email/logs?status=failed&limit=10"
+```
+
+#### Via gateway publik
+
+**Kirim email (mode queue — default):**
+```bash
+curl -X POST https://api-siapi.kemenag.go.id/v1/email/send \
   -H "Content-Type: application/json" \
   -H "X-Service-Key: YOUR_SERVICE_KEY" \
   -H "X-Service-Origin: nama-service-saya" \
@@ -604,7 +657,7 @@ curl -X POST http://localhost:5950/api/email/send \
 
 **Kirim email (mode direct — tunggu konfirmasi):**
 ```bash
-curl -X POST http://localhost:5950/api/email/send \
+curl -X POST https://api-siapi.kemenag.go.id/v1/email/send \
   -H "Content-Type: application/json" \
   -H "X-Service-Key: YOUR_SERVICE_KEY" \
   -H "X-Service-Origin: nama-service-saya" \
@@ -620,16 +673,10 @@ curl -X POST http://localhost:5950/api/email/send \
   }'
 ```
 
-**Lihat semua log email gagal:**
+**Lihat log & filter berdasarkan aplikasi:**
 ```bash
 curl -H "X-Service-Key: YOUR_SERVICE_KEY" \
-  "http://localhost:5950/api/email/logs?status=failed&limit=10"
-```
-
-**Filter log berdasarkan aplikasi:**
-```bash
-curl -H "X-Service-Key: YOUR_SERVICE_KEY" \
-  "http://localhost:5950/api/email/logs?app_name=DUMAS&date_from=2026-05-01"
+  "https://api-siapi.kemenag.go.id/v1/email/logs?app_name=DUMAS&date_from=2026-05-01"
 ```
 
 ---
