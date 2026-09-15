@@ -1,7 +1,7 @@
 const { validationResult, body } = require('express-validator');
 const db = require('../models');
 const emailQueue = require('../jobs/emailQueue');
-const { renderTemplate, sendMail, sendMailFallback } = require('../helpers/mailer');
+const { renderTemplate, sendMail, sendMailFallback, isKemenagRecipient } = require('../helpers/mailer');
 
 const ALLOWED_TEMPLATES = ['otp-verification', 'password-changed', 'raw'];
 
@@ -78,6 +78,23 @@ module.exports = {
           message: 'Email berhasil dikirim',
         });
       } catch (err) {
+        // Fallback Mailtrap hanya relevan kalau percobaan awal barusan lewat SMTP Kemenag
+        // (penerima @kemenag.go.id). Penerima domain lain sudah langsung ke Mailtrap di sendMail().
+        if (!isKemenagRecipient(to)) {
+          await db.EmailLog.update(
+            { status: 'failed', error_message: err.message, retry_count: 1 },
+            { where: { id: log.id } }
+          );
+
+          return res.status(500).json({
+            status: false,
+            mode: 'direct',
+            log_id: log.id,
+            error_message: err.message,
+            message: 'Email gagal dikirim',
+          });
+        }
+
         try {
           const fallback = await sendMailFallback({ to, subject, html });
 

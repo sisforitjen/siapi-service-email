@@ -15,11 +15,13 @@ jest.mock('../models', () => ({
 
 jest.mock('../helpers/mailer', () => ({
   renderTemplate: jest.fn().mockReturnValue('<h1>HTML</h1>'),
-  sendMail: jest.fn().mockResolvedValue({ messageId: 'mock-message-id@smtp' }),
+  sendMail: jest.fn().mockResolvedValue({ provider: 'kemenag', messageId: 'mock-message-id@smtp' }),
+  sendMailFallback: jest.fn().mockResolvedValue({ provider: 'mailtrap', messageId: 'mock-message-id@mailtrap' }),
+  isKemenagRecipient: jest.fn((to) => /@kemenag\.go\.id$/i.test(to || '')),
 }));
 
 const app = require('../app');
-const { sendMail } = require('../helpers/mailer');
+const { sendMail, sendMailFallback } = require('../helpers/mailer');
 
 const VALID_KEY = 'test-secret-key';
 
@@ -163,7 +165,7 @@ describe('POST /api/email/send — mode direct', () => {
     expect(res.body.log_id).toBeDefined();
   });
 
-  it('returns 500 dengan error_message jika SMTP gagal', async () => {
+  it('fallback ke Mailtrap dan tetap 200 jika SMTP Kemenag gagal untuk penerima @kemenag.go.id', async () => {
     sendMail.mockRejectedValueOnce(new Error('SMTP connection refused'));
 
     const res = await request(app)
@@ -177,11 +179,55 @@ describe('POST /api/email/send — mode direct', () => {
         data: {},
       });
 
+    expect(sendMailFallback).toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe(true);
+    expect(res.body.mode).toBe('direct');
+    expect(res.body.provider).toBe('mailtrap');
+    expect(res.body.message_id).toBe('mock-message-id@mailtrap');
+    expect(res.body.log_id).toBeDefined();
+  });
+
+  it('returns 500 jika SMTP Kemenag DAN fallback Mailtrap sama-sama gagal', async () => {
+    sendMail.mockRejectedValueOnce(new Error('SMTP connection refused'));
+    sendMailFallback.mockRejectedValueOnce(new Error('Mailtrap API error'));
+
+    const res = await request(app)
+      .post('/api/email/send')
+      .set('x-service-key', VALID_KEY)
+      .send({
+        to: 'user@kemenag.go.id',
+        subject: 'Test Direct Gagal Total',
+        template: 'otp-verification',
+        mode: 'direct',
+        data: {},
+      });
+
     expect(res.status).toBe(500);
     expect(res.body.status).toBe(false);
     expect(res.body.mode).toBe('direct');
     expect(res.body.error_message).toBe('SMTP connection refused');
     expect(res.body.log_id).toBeDefined();
+  });
+
+  it('langsung pakai Mailtrap tanpa fallback untuk penerima non-kemenag.go.id yang gagal', async () => {
+    sendMail.mockRejectedValueOnce(new Error('Mailtrap send failed'));
+
+    const res = await request(app)
+      .post('/api/email/send')
+      .set('x-service-key', VALID_KEY)
+      .send({
+        to: 'user@gmail.com',
+        subject: 'Test Direct Non-Kemenag Gagal',
+        template: 'otp-verification',
+        mode: 'direct',
+        data: {},
+      });
+
+    expect(sendMailFallback).not.toHaveBeenCalled();
+    expect(res.status).toBe(500);
+    expect(res.body.status).toBe(false);
+    expect(res.body.error_message).toBe('Mailtrap send failed');
   });
 
   it('returns 400 jika mode tidak valid', async () => {

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Worker } = require('bullmq');
 const { createRedisConnection } = require('../config/redis');
-const { sendMail, sendMailFallback } = require('../helpers/mailer');
+const { sendMail, sendMailFallback, isKemenagRecipient } = require('../helpers/mailer');
 const db = require('../models');
 
 const worker = new Worker(
@@ -42,8 +42,19 @@ worker.on('failed', async (job, err) => {
     return;
   }
 
-  // Semua retry SMTP Kemenag habis -> coba fallback ke Mailtrap.
   const { to, subject, html } = job.data;
+
+  // Fallback Mailtrap hanya relevan kalau job barusan gagal lewat SMTP Kemenag
+  // (penerima @kemenag.go.id). Penerima domain lain sudah langsung ke Mailtrap di sendMail().
+  if (!isKemenagRecipient(to)) {
+    await db.EmailLog.update(
+      { status: 'failed', error_message: err.message, retry_count: job.attemptsMade },
+      { where: { id: job.data.logId } }
+    );
+    return;
+  }
+
+  // Semua retry SMTP Kemenag habis -> coba fallback ke Mailtrap.
   try {
     const fallback = await sendMailFallback({ to, subject, html });
 

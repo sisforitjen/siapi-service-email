@@ -37,7 +37,8 @@ transport.verify((error) => {
   }
 });
 
-// Fallback: dipakai hanya kalau semua percobaan lewat SMTP domain Kemenag gagal.
+// Dipakai untuk penerima domain lain (non-kemenag.go.id) langsung,
+// dan sebagai fallback kalau SMTP Kemenag gagal untuk penerima @kemenag.go.id.
 const mailtrapClient = new MailtrapClient({
   token: process.env.MAILTRAP_API_KEY,
 });
@@ -52,7 +53,11 @@ function renderTemplate(template, data) {
   return handlebars.compile(source)(data || {});
 }
 
-async function sendMail({ to, subject, html }) {
+function isKemenagRecipient(to) {
+  return /@kemenag\.go\.id$/i.test(to || '');
+}
+
+async function sendMailKemenag({ to, subject, html }) {
   const info = await transport.sendMail({
     from: `"${process.env.SENDER_NAME}" <${process.env.SENDER_EMAIL}>`,
     to,
@@ -75,4 +80,14 @@ async function sendMailFallback({ to, subject, html }) {
   return { provider: 'mailtrap', messageId: result.message_ids?.[0] };
 }
 
-module.exports = { renderTemplate, sendMail, sendMailFallback, transport };
+// Domain kemenag.go.id -> SMTP Kemenag (reputasi terjaga sesama domain).
+// Domain lain (gmail, yahoo, dll) -> langsung Mailtrap, karena SMTP Kemenag
+// sering masuk spam di luar domain kemenag.go.id.
+async function sendMail({ to, subject, html }) {
+  if (!isKemenagRecipient(to)) {
+    return sendMailFallback({ to, subject, html });
+  }
+  return sendMailKemenag({ to, subject, html });
+}
+
+module.exports = { renderTemplate, sendMail, sendMailFallback, isKemenagRecipient, transport };
