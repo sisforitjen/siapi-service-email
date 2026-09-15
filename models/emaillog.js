@@ -20,6 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       template: DataTypes.STRING(100),
       template_data: DataTypes.JSONB,
       status: DataTypes.ENUM('queued', 'sent', 'failed'),
+      provider: { type: DataTypes.ENUM('kemenag', 'mailtrap'), defaultValue: 'kemenag' },
       job_id: DataTypes.STRING(100),
       message_id: DataTypes.STRING(255),
       html_body: DataTypes.TEXT,

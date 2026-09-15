@@ -1,5 +1,6 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
+const { MailtrapClient } = require('mailtrap');
 const fs = require('fs');
 const path = require('path');
 const handlebars = require('handlebars');
@@ -36,6 +37,11 @@ transport.verify((error) => {
   }
 });
 
+// Fallback: dipakai hanya kalau semua percobaan lewat SMTP domain Kemenag gagal.
+const mailtrapClient = new MailtrapClient({
+  token: process.env.MAILTRAP_API_KEY,
+});
+
 function renderTemplate(template, data) {
   if (template === 'raw') {
     if (!data?.html) throw new Error("Template 'raw' membutuhkan data.html");
@@ -47,12 +53,26 @@ function renderTemplate(template, data) {
 }
 
 async function sendMail({ to, subject, html }) {
-  return transport.sendMail({
+  const info = await transport.sendMail({
     from: `"${process.env.SENDER_NAME}" <${process.env.SENDER_EMAIL}>`,
     to,
     subject,
     html,
   });
+  return { provider: 'kemenag', messageId: info.messageId };
 }
 
-module.exports = { renderTemplate, sendMail, transport };
+async function sendMailFallback({ to, subject, html }) {
+  const result = await mailtrapClient.send({
+    from: {
+      name: process.env.SENDER_NAME,
+      email: process.env.MAILTRAP_SENDER_EMAIL,
+    },
+    to: [{ email: to }],
+    subject,
+    html,
+  });
+  return { provider: 'mailtrap', messageId: result.message_ids?.[0] };
+}
+
+module.exports = { renderTemplate, sendMail, sendMailFallback, transport };

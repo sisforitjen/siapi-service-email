@@ -1,7 +1,7 @@
 const { validationResult, body } = require('express-validator');
 const db = require('../models');
 const emailQueue = require('../jobs/emailQueue');
-const { renderTemplate, sendMail } = require('../helpers/mailer');
+const { renderTemplate, sendMail, sendMailFallback } = require('../helpers/mailer');
 
 const ALLOWED_TEMPLATES = ['otp-verification', 'password-changed', 'raw'];
 
@@ -66,7 +66,7 @@ module.exports = {
         const info = await sendMail({ to, subject, html });
 
         await db.EmailLog.update(
-          { status: 'sent', message_id: info.messageId, sent_at: new Date() },
+          { status: 'sent', provider: info.provider, message_id: info.messageId, sent_at: new Date() },
           { where: { id: log.id } }
         );
 
@@ -78,18 +78,47 @@ module.exports = {
           message: 'Email berhasil dikirim',
         });
       } catch (err) {
-        await db.EmailLog.update(
-          { status: 'failed', error_message: err.message, retry_count: 1 },
-          { where: { id: log.id } }
-        );
+        try {
+          const fallback = await sendMailFallback({ to, subject, html });
 
-        return res.status(500).json({
-          status: false,
-          mode: 'direct',
-          log_id: log.id,
-          error_message: err.message,
-          message: 'Email gagal dikirim',
-        });
+          await db.EmailLog.update(
+            {
+              status: 'sent',
+              provider: fallback.provider,
+              message_id: fallback.messageId,
+              sent_at: new Date(),
+              error_message: `SMTP Kemenag gagal, terkirim via fallback Mailtrap: ${err.message}`,
+              retry_count: 1,
+            },
+            { where: { id: log.id } }
+          );
+
+          return res.json({
+            status: true,
+            mode: 'direct',
+            provider: fallback.provider,
+            message_id: fallback.messageId,
+            log_id: log.id,
+            message: 'Email berhasil dikirim via fallback Mailtrap',
+          });
+        } catch (fallbackErr) {
+          await db.EmailLog.update(
+            {
+              status: 'failed',
+              error_message: `SMTP Kemenag gagal: ${err.message} | Fallback Mailtrap juga gagal: ${fallbackErr.message}`,
+              retry_count: 1,
+            },
+            { where: { id: log.id } }
+          );
+
+          return res.status(500).json({
+            status: false,
+            mode: 'direct',
+            log_id: log.id,
+            error_message: err.message,
+            message: 'Email gagal dikirim',
+          });
+        }
       }
     }
 
